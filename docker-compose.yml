@@ -1,0 +1,224 @@
+version: '3.7'
+
+networks:
+    AppNetwork:
+        driver: bridge
+        name: app_net
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.19.0.0/16
+
+volumes:
+    redis_data:
+        name: redis_data
+    mysql_data:
+        name: mysql_data
+    mongodb_data:
+        name: mongodb_data
+    rabbitmq_data:
+        name: rabbitmq_data
+
+secrets:
+    mysql_ca:
+        file: ./mysql/ssl/ca.pem
+    mysql_server_key:
+        file: ./mysql/ssl/server-key.pem
+    mysql_server_cert:
+        file: ./mysql/ssl/server-cert.pem
+    mongodb_ca:
+        file: ./mongodb/ssl/rootCA.pem
+    mongodb_server:
+        file: ./mongodb/ssl/server.pem
+
+services:
+
+    # docker exec -it redis redis-cli -n 0 -p 6379 -a '.7HVhf(Yh+9CF-58' --no-auth-warning
+    redis:
+        image: redis:5-alpine
+        hostname: redis
+        container_name: redis
+        # ports:
+        #     - "63781:6379"
+        volumes:
+            - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+            - redis_data:/data
+        command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--appendonly", "yes"]
+        restart: always
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.2
+
+    # docker exec -it rabbitmq rabbitmqctl -n rabbit@localhost status
+    rabbitmq:
+        image: bitnami/rabbitmq:3.8
+        hostname: rabbitmq
+        container_name: rabbitmq
+        # ports:
+        #     - '15672:15672'
+        volumes:
+            - 'rabbitmq_data:/bitnami'
+        environment:
+            RABBITMQ_VHOST: "/"
+            RABBITMQ_USERNAME: "rabbitmq"
+            RABBITMQ_PASSWORD: "rabbitmq"
+            RABBITMQ_ERL_COOKIE: "UEtgBNDwbk"
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.3
+
+    # mongo --ssl \
+    #       --sslCAFile ./mongodb/ssl/rootCA.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
+    #       --host 127.0.0.1 --port 29019 -u 'root' -p 'jyA7LF_7dX7.pmH' --authenticationDatabase admin
+    mongodb:
+        image: mongo:4.2
+        hostname: mongodb
+        container_name: mongodb
+        command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
+        secrets:
+            - source: mongodb_ca
+              target: /etc/ssl/ca.pem
+            - source: mongodb_server
+              target: /etc/ssl/server.pem
+        # ports:
+        #     - "29019:27017"
+        volumes:
+            - ./mongodb/mongod.conf:/etc/mongo/mongod.conf:ro
+            - mongodb_data:/data/db
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: "jyA7LF_7dX7.pmH"
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.4
+
+    # mysql -h 127.0.0.1 -P 30061 -uapp -p'ExBkhs^NGuA6r_Fu' \
+    #     --ssl-ca=mysql/ssl/ca.pem \
+    #     --ssl-cert=mysql/ssl/client-cert.pem \
+    #     --ssl-key=mysql/ssl/client-key.pem
+    database:
+        image: mysql:5.7
+        hostname: database
+        container_name: database
+        command: ["mysqld"]
+        secrets:
+            - source: mysql_ca
+              target: /etc/mysql-ssl/ca.pem
+            - source: mysql_server_key
+              target: /etc/mysql-ssl/server-key.pem
+            - source: mysql_server_cert
+              target: /etc/mysql-ssl/server-cert.pem
+        volumes:
+            - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+            - mysql_data:/var/lib/mysql
+        env_file:
+            - ./mysql/mysql.env
+        # ports:
+        #     - "30061:3306"
+        restart: always
+        healthcheck:
+            test: "export MYSQL_PWD='cwCvv3sjRHjP^2U_'; mysqladmin -P 3306 --user=root --silent ping"
+            interval: 60s
+            timeout: 5s
+            retries: 3
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.5
+
+    webserver:
+        image: ${WEBSERVER_IMAGE}
+        hostname: webserver
+        container_name: webserver
+        working_dir: ${REMOTE_SRC}
+        environment:
+            APP_DOMAIN: ${APP_DOMAIN}
+            REMOTE_SRC: ${REMOTE_SRC}
+        ports:
+            - "${WEBSERVER_PORT_HTTP}:80"
+            - "${WEBSERVER_PORT_HTTPS}:443"
+        depends_on: ['app']
+        links:
+            - "app:app-php"
+        restart: on-failure
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.6
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "200k"
+                max-file: "10"
+                tag: "webserver"
+
+    app:
+        image: ${APP_IMAGE}
+        hostname: app
+        container_name: app
+        working_dir: ${REMOTE_SRC}
+        env_file:
+            - app.env
+        ports:
+            - "8800:8800"
+            - "8080:8080"
+        # extra_hosts:
+        #     - "machine-host:${MACHINE_IP}"
+        environment:
+            REMOTE_SRC: ${REMOTE_SRC}
+            CONTAINER_ROLE: app
+            # XDEBUG_ENABLED: 'false'
+            # XDEBUG_REMOTE_HOST: host.docker.internal
+            # # SESSION
+            SESSION_DRIVER: file
+            SESSION_DOMAIN: ${APP_DOMAIN}
+            SESSION_LIFETIME: 120
+            SESSION_SECURE_COOKIE: 'true'
+            # # JWT
+            JWT_SECRET: SomeRandomString
+            JWT_TTL: 20160
+            JWT_REFRESH_TTL: 20160
+        depends_on: ['redis', 'database']
+        restart: on-failure
+        healthcheck:
+            test: ["CMD-SHELL", "SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.7
+
+    queue:
+        image: ${APP_IMAGE}
+        hostname: queue
+        container_name: queue
+        working_dir: ${REMOTE_SRC}
+        env_file:
+            - app.env
+            - queue.env
+        environment:
+            CONTAINER_ROLE: queue
+            LARAVEL_QUEUE_MANAGER: worker
+        ports:
+            - "8088:8000"
+        depends_on: ['redis', 'database']
+        restart: always
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.8
+
+    scheduler:
+        image: ${APP_IMAGE}
+        hostname: scheduler
+        container_name: scheduler
+        working_dir: ${REMOTE_SRC}
+        user: root
+        env_file:
+            - app.env
+            - scheduler.env
+        environment:
+            CONTAINER_ROLE: scheduler
+        depends_on: ['redis', 'database']
+        restart: always
+        networks:
+            AppNetwork:
+                ipv4_address: 172.19.0.9
