@@ -180,7 +180,7 @@ RUN set -xe; \
         ds-1.2.9 \
         amqp-1.9.4 \
         redis-5.1.1 \
-        mongodb-1.6.0 \
+        mongodb-1.7.3 \
         xdebug-2.8.0 \
     ; \
     docker-php-ext-enable \
@@ -323,7 +323,7 @@ COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mysql/ssl/client-cert.
 COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mysql/ssl/ca.pem $REMOTE_SRC/database/docker/mysql/ssl/ca.pem
 
 # MONGODB
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mongodb/ssl/rootCA.pem $REMOTE_SRC/database/docker/mongodb/ssl/rootCA.pem
+COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mongodb/ssl/ca.pem $REMOTE_SRC/database/docker/mongodb/ssl/ca.pem
 COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mongodb/ssl/client.pem $REMOTE_SRC/database/docker/mongodb/ssl/client.pem
 
 RUN set -xe \

@@ -26,8 +26,8 @@ tree -a  -I '.git|.DS_Store' --dirsfirst
 ├── mongodb
 │   ├── ssl
 │   │   ├── .gitignore
+│   │   ├── ca.pem
 │   │   ├── client.pem
-│   │   ├── rootCA.pem
 │   │   └── server.pem
 │   └── mongod.conf
 ├── mysql
@@ -333,7 +333,7 @@ docker exec -it redis redis-cli -n 0 -p 6379 -a '.7HVhf(Yh+9CF-58' --no-auth-war
 
 ```bash
 mongo --ssl \
-      --sslCAFile ./mongodb/ssl/rootCA.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
+      --sslCAFile ./mongodb/ssl/ca.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
       --host 127.0.0.1 --port 29019 -u 'root' -p 'jyA7LF_7dX7.pmH' --authenticationDatabase admin
 ```
 

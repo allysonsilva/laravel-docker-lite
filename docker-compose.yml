@@ -27,7 +27,7 @@ secrets:
     mysql_server_cert:
         file: ./mysql/ssl/server-cert.pem
     mongodb_ca:
-        file: ./mongodb/ssl/rootCA.pem
+        file: ./mongodb/ssl/ca.pem
     mongodb_server:
         file: ./mongodb/ssl/server.pem
 
@@ -68,13 +68,13 @@ services:
                 ipv4_address: 172.19.0.3
 
     # mongo --ssl \
-    #       --sslCAFile ./mongodb/ssl/rootCA.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
+    #       --sslCAFile ./mongodb/ssl/ca.pem --sslPEMKeyFile ./mongodb/ssl/client.pem \
     #       --host 127.0.0.1 --port 29019 -u 'root' -p 'jyA7LF_7dX7.pmH' --authenticationDatabase admin
     mongodb:
         image: mongo:4.2
         hostname: mongodb
         container_name: mongodb
-        command: ["mongod", "--config", "/etc/mongo/mongod.conf"]
+        command: ["mongod", "--config", "/etc/mongo/mongod.conf", "--noscripting", "--bind_ip_all"]
         secrets:
             - source: mongodb_ca
               target: /etc/ssl/ca.pem
