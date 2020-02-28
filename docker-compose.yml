@@ -188,6 +188,12 @@ services:
         networks:
             AppNetwork:
                 ipv4_address: 172.19.0.7
+        logging:
+            driver: "json-file"
+            options:
+                max-file: 5
+                max-size: 10m
+                tag: app
 
     queue:
         image: ${APP_IMAGE}
@@ -207,6 +213,12 @@ services:
         networks:
             AppNetwork:
                 ipv4_address: 172.19.0.8
+        logging:
+            driver: "json-file"
+            options:
+                max-file: 5
+                max-size: 10m
+                tag: queue
 
     scheduler:
         image: ${APP_IMAGE}
@@ -224,3 +236,9 @@ services:
         networks:
             AppNetwork:
                 ipv4_address: 172.19.0.9
+        logging:
+            driver: "json-file"
+            options:
+                max-file: 5
+                max-size: 10m
+                tag: scheduler
