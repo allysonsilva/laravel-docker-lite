@@ -317,7 +317,7 @@ Set the `WEBSERVER_PORT_HTTP` environment variable for HTTP connections and `WEB
 #### To access the _MySQL_ via Terminal/Console:
 
 ```bash
-mysql -h 127.0.0.1 -P 30061 -uapp -p'ExBkhs^NGuA6r_Fu' \
+mysql -h 127.0.0.1 -P 30062 -uapp -p'ExBkhs^NGuA6r_Fu' \
     --ssl-ca=mysql/ssl/ca.pem \
     --ssl-cert=mysql/ssl/client-cert.pem \
     --ssl-key=mysql/ssl/client-key.pem

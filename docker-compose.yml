@@ -92,7 +92,7 @@ services:
             AppNetwork:
                 ipv4_address: 172.19.0.4
 
-    # mysql -h 127.0.0.1 -P 30061 -uapp -p'ExBkhs^NGuA6r_Fu' \
+    # mysql -h 127.0.0.1 -P 30062 -uapp -p'ExBkhs^NGuA6r_Fu' \
     #     --ssl-ca=mysql/ssl/ca.pem \
     #     --ssl-cert=mysql/ssl/client-cert.pem \
     #     --ssl-key=mysql/ssl/client-key.pem
@@ -114,10 +114,10 @@ services:
         env_file:
             - ./mysql/mysql.env
         # ports:
-        #     - "30061:3306"
+        #     - "30062:3603"
         restart: always
         healthcheck:
-            test: "export MYSQL_PWD='cwCvv3sjRHjP^2U_'; mysqladmin -P 3306 --user=root --silent ping"
+            test: "export MYSQL_PWD='cwCvv3sjRHjP^2U_'; mysqladmin -P 3603 --user=root --silent ping"
             interval: 60s
             timeout: 5s
             retries: 3
