@@ -181,7 +181,7 @@ RUN set -xe; \
         amqp-1.9.4 \
         redis-5.1.1 \
         mongodb-1.7.3 \
-        xdebug-2.8.0 \
+        xdebug-2.9.2 \
     ; \
     docker-php-ext-enable \
         ds \
