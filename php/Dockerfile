@@ -303,28 +303,31 @@ USER $USER_NAME
 
 # Files APP
 # Copy our application
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_APP_PATH $REMOTE_SRC
+COPY $LOCAL_APP_PATH $REMOTE_SRC
 
 ## Copy the downloaded dependencies from the {vendor} stage
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/vendor/ ./vendor/
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/composer.json ./composer.json
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/composer.lock ./composer.lock
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/bootstrap/ ./bootstrap/
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/config/ ./config/
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/routes/ ./routes/
-COPY --from=vendor --chown=${USER_NAME}:${USER_NAME} /app/storage/framework ./storage/framework
+COPY --from=vendor /app/vendor/ ./vendor/
+COPY --from=vendor /app/composer.json ./composer.json
+COPY --from=vendor /app/composer.lock ./composer.lock
+COPY --from=vendor /app/bootstrap/ ./bootstrap/
+COPY --from=vendor /app/config/ ./config/
+COPY --from=vendor /app/routes/ ./routes/
+COPY --from=vendor /app/storage/framework ./storage/framework
 
 # Copy from {frontend} stage
-COPY --from=frontend --chown=${USER_NAME}:${USER_NAME} /app/public/ ./public/
+COPY --from=frontend /app/public/ ./public/
 
 # MYSQL
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mysql/ssl/client-key.pem $REMOTE_SRC/database/docker/mysql/ssl/client-key.pem
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mysql/ssl/client-cert.pem $REMOTE_SRC/database/docker/mysql/ssl/client-cert.pem
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mysql/ssl/ca.pem $REMOTE_SRC/database/docker/mysql/ssl/ca.pem
+COPY $LOCAL_DOCKER_PATH/mysql/ssl/client-key.pem $REMOTE_SRC/database/docker/mysql/ssl/client-key.pem
+COPY $LOCAL_DOCKER_PATH/mysql/ssl/client-cert.pem $REMOTE_SRC/database/docker/mysql/ssl/client-cert.pem
+COPY $LOCAL_DOCKER_PATH/mysql/ssl/ca.pem $REMOTE_SRC/database/docker/mysql/ssl/ca.pem
 
 # MONGODB
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mongodb/ssl/ca.pem $REMOTE_SRC/database/docker/mongodb/ssl/ca.pem
-COPY --chown=${USER_NAME}:${USER_NAME} $LOCAL_DOCKER_PATH/mongodb/ssl/client.pem $REMOTE_SRC/database/docker/mongodb/ssl/client.pem
+COPY $LOCAL_DOCKER_PATH/mongodb/ssl/ca.pem $REMOTE_SRC/database/docker/mongodb/ssl/ca.pem
+COPY $LOCAL_DOCKER_PATH/mongodb/ssl/client.pem $REMOTE_SRC/database/docker/mongodb/ssl/client.pem
+
+# Current Directory
+RUN sudo chown -R ${USER_NAME}:${USER_NAME} $REMOTE_SRC
 
 RUN set -xe \
     && echo "---> Installing Composer" \
