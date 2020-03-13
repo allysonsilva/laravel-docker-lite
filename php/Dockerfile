@@ -381,6 +381,10 @@ ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
 # As non daemon and single base image, it may be used as cli container
 CMD ["/bin/bash"]
 
+# Override stop signal to stop process gracefully
+# https://github.com/php/php-src/blob/17baa87faddc2550def3ae7314236826bc1b1398/sapi/fpm/php-fpm.8.in#L163
+STOPSIGNAL SIGQUIT
+
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
 RUN { \

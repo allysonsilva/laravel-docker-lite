@@ -145,6 +145,7 @@ services:
             - "${WEBSERVER_PORT_HTTP}:80"
             - "${WEBSERVER_PORT_HTTPS}:443"
         depends_on: ['site', 'admin']
+        stop_signal: SIGQUIT
         restart: always
         networks:
             AppNetwork:
@@ -189,6 +190,7 @@ services:
             JWT_TTL: 20160
             JWT_REFRESH_TTL: 20160
         depends_on: ['redis', 'database']
+        stop_signal: SIGQUIT
         restart: on-failure
         networks:
             AppNetwork:
@@ -222,6 +224,7 @@ services:
             REMOTE_SRC: ${ADMIN_SRC}
             CONTAINER_ROLE: app
         depends_on: ['redis', 'database']
+        stop_signal: SIGQUIT
         restart: on-failure
         networks:
             AppNetwork:

@@ -92,6 +92,9 @@ WORKDIR /etc/nginx/
 
 ENTRYPOINT ["/entrypoint.sh"]
 
+# @see https://ubuntu.com/blog/avoiding-dropped-connections-in-nginx-containers-with-stopsignal-sigquit
+STOPSIGNAL SIGQUIT
+
 CMD ["nginx", "-g", "daemon off;"]
 
 # vim:set ft=dockerfile:
