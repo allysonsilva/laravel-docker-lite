@@ -2,29 +2,56 @@
 
 set -e
 
-# HOST_DOMAIN="host.docker.internal"
-# ping -q -c1 $HOST_DOMAIN > /dev/null 2>&1
-# if [ $? -ne 0 ]; then
-#   HOST_IP=$(ip route | awk 'NR==1 {print $3}')
-#   echo -e "$HOST_IP\t$HOST_DOMAIN" >> /etc/hosts
-# fi
-
 echo
 
 find /etc/nginx \
     -type f -exec sed -i \
-        -e "s|\\\.example\\\.com|\\\.$(echo $APP_DOMAIN | sed 's/\./\\\\./g')|g" \
-        -e "s|example\\\.com|$(echo $APP_DOMAIN | sed 's/\./\\\\./g')|g" \
+        -e "s|{{SITE_DOMAIN}}|$SITE_DOMAIN|g" \
+        -e "s|{{SITE_SRC}}|$SITE_SRC|g" \
     {} \;
 
-find /etc/nginx \
-    -type f -exec sed -i \
-        -e "s|{{APP_DOMAIN}}|$APP_DOMAIN|g" \
-        -e "s|{{REMOTE_SRC}}|$REMOTE_SRC|g" \
-        -e "s|{{ROOT_SRC}}|$ROOT_SRC|g" \
-    {} \;
+# ================================================
+# ================================================
 
+export DNS_DOCKER_SERVER=$(cat /etc/resolv.conf | grep -i '^nameserver' | head -n1 | cut -d ' ' -f2)
+
+if [[ -z "$ADMIN_DOMAIN" ]]; then
+    rm -f /etc/nginx/servers/admin.conf 2> /dev/null
+fi
+
+for conf in $(find /etc/nginx -type f -not -path '*/\.*' -regex '.*\.conf' | sort);
+do
+    envsubst '${DNS_DOCKER_SERVER}
+              $ADMIN_DOMAIN
+              ${ADMIN_SRC}' \
+                < $conf | sponge $conf
+done
+
+# ================================================
+# ================================================
+
+mkdir -p "$SITE_SRC/public" \
+         "$ADMIN_SRC/public"
+
+touch "$SITE_SRC/public/index.php" \
+      "$ADMIN_SRC/public/index.php"
+
+# ================================================
+# ================================================
+
+if [[ ${FORCE_CHANGE_OWNERSHIP:-false} == true ]]; then
+    echo
+    echo "CHOWN - Change User Ownership"
+    echo
+
+    chown -R ${USER_NAME}:${GROUP_NAME} $SITE_SRC $ADMIN_SRC
+fi
+
+# ================================================
+# ================================================
+
+echo '================='
 echo 'Server Started...'
-echo
+echo '================='
 
 exec "$@"

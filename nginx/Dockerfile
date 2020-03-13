@@ -1,4 +1,10 @@
-FROM nginx:1.16-alpine
+ARG TAG_SITE_IMAGE
+ARG TAG_ADMIN_IMAGE
+
+FROM ${TAG_SITE_IMAGE} as SITE_IMAGE
+FROM ${TAG_ADMIN_IMAGE} as ADMIN_IMAGE
+
+FROM nginx:1.17-alpine
 
 # Remove default files
 RUN set -xe \
@@ -21,6 +27,7 @@ RUN apk --update upgrade --no-cache -q; \
         openssl \
         openssh \
         coreutils \
+        moreutils \
         ca-certificates \
     && rm -rf /var/cache/apk/*
 
@@ -30,15 +37,11 @@ ENV USER_NAME $USER_NAME
 ARG GROUP_NAME=app
 ENV GROUP_NAME $GROUP_NAME
 
-ARG APP_DOMAIN
-ENV APP_DOMAIN ${APP_DOMAIN:-domain.xyz}
+ARG SITE_DOMAIN
+ARG SITE_SRC
 
-# Should be the same project container path as the application that is running PHP-FPM
-ARG REMOTE_SRC=/var/www/app
-ENV REMOTE_SRC $REMOTE_SRC
-
-ARG ROOT_SRC=${REMOTE_SRC}/public
-ENV ROOT_SRC $ROOT_SRC
+ARG ADMIN_DOMAIN
+ARG ADMIN_SRC
 
 RUN set -xe; \
     addgroup --gid ${USER_GID:-1000} $GROUP_NAME; \
@@ -47,27 +50,36 @@ RUN set -xe; \
     echo "$USER_NAME ALL = (ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 RUN set -xe; \
-    touch /var/run/nginx.pid; \
-    mkdir -p $REMOTE_SRC; \
-    mkdir -p $ROOT_SRC; \
-    touch $ROOT_SRC/index.php
+    mkdir -p /var/cache/nginx/app; \
+    touch /var/run/nginx.pid;
 
 ARG TZ=America/Fortaleza
 
 RUN set -xe \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
-    && ln -sf /dev/stdout /var/log/nginx/${APP_DOMAIN}.access.log \
-    && ln -sf /dev/stderr /var/log/nginx/${APP_DOMAIN}.error.log
+    && ln -sf /dev/stdout /var/log/nginx/${SITE_DOMAIN}.access.log \
+    && ln -sf /dev/stderr /var/log/nginx/${SITE_DOMAIN}.error.log \
+    && ln -sf /dev/stdout /var/log/nginx/${ADMIN_DOMAIN}.access.log \
+    && ln -sf /dev/stderr /var/log/nginx/${ADMIN_DOMAIN}.error.log
 
-# RUN echo '30 2 * * 1 /usr/bin/certbot renew --force-renew --renew-hook "/usr/sbin/nginx -s reload"' >> /var/spool/cron/crontabs/root \
-#     && echo "# Empty Line" >> /etc/crontabs/root
+COPY --from=SITE_IMAGE --chown=nginx:nginx $SITE_SRC/public $SITE_SRC/public
+COPY --from=SITE_IMAGE --chown=nginx:nginx $SITE_SRC/storage $SITE_SRC/storage
+
+COPY --from=ADMIN_IMAGE --chown=nginx:nginx $ADMIN_SRC/public $ADMIN_SRC/public
+COPY --from=ADMIN_IMAGE --chown=nginx:nginx $ADMIN_SRC/storage $ADMIN_SRC/storage
+
+RUN set -xe \
+    && cd $SITE_SRC/storage \
+    && ls --hide=app | xargs rm -rf \
+    && cd $ADMIN_SRC/storage \
+    && ls --hide=app | xargs rm -rf
 
 COPY ./certs/ /etc/nginx/certs
 COPY ./configs/ /etc/nginx/
 
 RUN set -xe; \
-    chown -R ${USER_NAME}:${GROUP_NAME} $REMOTE_SRC; \
-    chown -R ${USER_NAME}:${GROUP_NAME} /etc/nginx /var/log; \
+    chown -R ${USER_NAME}:${GROUP_NAME} $SITE_SRC $ADMIN_SRC; \
+    chown -R ${USER_NAME}:${GROUP_NAME} /etc/nginx /var/log /var/cache/nginx/app; \
     chown ${USER_NAME}:${GROUP_NAME} /var/run/nginx.pid
 
 # Expose webserver port
