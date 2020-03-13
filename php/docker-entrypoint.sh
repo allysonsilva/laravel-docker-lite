@@ -4,17 +4,6 @@ set -e
 
 if [ "$1" = '/bin/bash' ]; then
 
-    echo
-    php --ini
-    echo
-    php -v
-    echo
-
-    # # Get the IP of the host computer from within Docker container
-    # machineIP=`getent hosts machine-host | awk '{ print $1 }'`
-    # hostIP=$(ip r | awk '/default/{print $3}')
-    # # hostIP=$(ip r s 0/0 | awk '{print $3}')
-
     # Default settings for PHP-FPM
     configure_php_fpm() {
         echo "Starting PHP-FPM configurations"
@@ -29,31 +18,29 @@ if [ "$1" = '/bin/bash' ]; then
         sed -i "/pid = .*/c\;pid = run/php-fpm.pid" ${PHP_INI_DIR}-fpm.conf
         sed -i "/daemonize = .*/c\daemonize = no" ${PHP_INI_DIR}-fpm.conf
 
-        sed -i "/access.log = .*/c\access.log = /proc/self/fd/2" ${PHP_FPM_POOL_DIR}/www.conf
-        sed -i "/slowlog = .*/c\slowlog = /proc/self/fd/2" ${PHP_FPM_POOL_DIR}/www.conf
+        # sed -i "/access.log = .*/c\access.log = /proc/self/fd/2" ${PHP_FPM_POOL_DIR}/www.conf
+        # sed -i "/slowlog = .*/c\slowlog = /proc/self/fd/2" ${PHP_FPM_POOL_DIR}/www.conf
         sed -i "/error_log = .*/c\error_log = /proc/self/fd/2" ${PHP_INI_DIR}-fpm.conf
 
         sed -i "/;clear_env = .*/c\clear_env = no" ${PHP_FPM_POOL_DIR}/www.conf
         sed -i "/;catch_workers_output = .*/c\catch_workers_output = yes" ${PHP_FPM_POOL_DIR}/www.conf
     }
 
-    configure_project_env() {
-        echo "Configuring Laravel commands according to the project flow"
-        echo
-
+    handle_composer_dependencies() {
         if [ ! -d "vendor" ]; then
             echo "Composer vendor folder was not installed. Running $> composer install --prefer-dist --no-interaction --optimize-autoloader --no-dev"
             echo
 
             composer install --prefer-dist --no-interaction --optimize-autoloader --no-dev
+
+            echo "composer run-script post-root-package-install"
+            echo
+            composer run-script post-root-package-install
+
+            echo "composer run-script post-autoload-dump"
+            echo
+            composer run-script post-autoload-dump
         fi
-
-        composer dump-autoload --optimize
-        composer run-script post-root-package-install
-        composer run-script post-autoload-dump
-
-        rm -rf ${REMOTE_SRC}/public/storage
-        php artisan storage:link
     }
 
     if [ -z "$APP_ENV" ]; then
@@ -70,12 +57,13 @@ if [ "$1" = '/bin/bash' ]; then
     if [ "$APP_ENV" = "production" ]
     then
 
+        # ps -ylC php-fpm --sort:rss
         sed -i \
             -e "/pm = .*/c\pm = dynamic" \
-            -e "/pm.max_children = .*/c\pm.max_children = 25" \
-            -e "/pm.start_servers = .*/c\pm.start_servers = 10" \
-            -e "/pm.min_spare_servers = .*/c\pm.min_spare_servers = 5" \
-            -e "/pm.max_spare_servers = .*/c\pm.max_spare_servers = 10" \
+            -e "/pm.max_children = .*/c\pm.max_children = 40" \
+            -e "/pm.start_servers = .*/c\pm.start_servers = 15" \
+            -e "/pm.min_spare_servers = .*/c\pm.min_spare_servers = 10" \
+            -e "/pm.max_spare_servers = .*/c\pm.max_spare_servers = 25" \
             -e "/pm.max_requests = .*/c\pm.max_requests = 1024" \
             -e "/rlimit_files = .*/c\rlimit_files = 32768" \
             -e "/rlimit_core = .*/c\rlimit_core = unlimited" \
@@ -93,9 +81,12 @@ if [ "$1" = '/bin/bash' ]; then
         echo "Laravel - Cache Optimization [Production]"
         echo
 
-        # $> {config:cache} && {route:cache}
-        # @see https://github.com/laravel/framework/blob/6.x/src/Illuminate/Foundation/Console/OptimizeCommand.php#L28
-        php artisan optimize
+        if [ -d "vendor" ]; then
+            # $> {config:cache} && {route:cache}
+            # @see https://github.com/laravel/framework/blob/7.x/src/Illuminate/Foundation/Console/OptimizeCommand.php#L28
+            php artisan optimize
+            php artisan view:cache
+        fi
 
     else
 
@@ -119,24 +110,35 @@ if [ "$1" = '/bin/bash' ]; then
             rm ${PHP_INI_SCAN_DIR}/docker-php-ext-opcache.ini
         fi
 
-        echo "Laravel - Clear All [Development]"
-        echo
+        if [[ ${FORCE_STORAGE_LINK:-false} == true ]]; then
+            echo
+            echo "Laravel - artisan storage:link"
+            echo
+
+            rm -rf ${REMOTE_SRC}/public/storage
+            php artisan storage:link
+        fi
 
         # $> {view:clear} && {cache:clear} && {route:clear} && {config:clear} && {clear-compiled}
-        # @see https://github.com/laravel/framework/blob/6.x/src/Illuminate/Foundation/Console/OptimizeClearCommand.php#L28
-        php artisan view:clear
-        php artisan route:clear
-        php artisan config:clear
-        php artisan clear-compiled
+        # @see https://github.com/laravel/framework/blob/7.x/src/Illuminate/Foundation/Console/OptimizeClearCommand.php#L28
+        if [[ -d "vendor" && ${FORCE_CLEAR:-false} == true ]]; then
+            echo
+            echo "Laravel - Clear All [Development]"
+            echo
+
+            php artisan view:clear
+            php artisan route:clear
+            php artisan config:clear
+            php artisan clear-compiled
+        fi
 
     fi
 
-    echo
-
     if [[ -n "$XDEBUG_ENABLED" && $XDEBUG_ENABLED == true ]]; then
+        echo
         { \
-            echo '[xdebug]'; \
-            echo 'zend_extension=xdebug.so'; \
+            # echo '[xdebug]'; \
+            # echo 'zend_extension=xdebug.so'; \
             echo; \
             echo 'xdebug.remote_enable=1'; \
             echo 'xdebug.default_enable=1'; \
@@ -158,19 +160,26 @@ if [ "$1" = '/bin/bash' ]; then
             echo; \
             echo "xdebug.remote_host=${XDEBUG_REMOTE_HOST:-`/sbin/ip route|awk '/default/ { print $3 }'`}"
         } | tee -a ${PHP_INI_SCAN_DIR}/zz-xdebug.ini > /dev/null
+    else
+        rm -f ${PHP_INI_SCAN_DIR}/docker-php-ext-xdebug.ini 2> /dev/null
     fi
 
     echo
-    configure_project_env
+    handle_composer_dependencies
     echo
 
     if [[ $CONTAINER_ROLE == "app" ]]
     then
 
         echo "Running the APP/PHP-FPM Service..."
+
+        echo
+        configure_php_fpm
         echo
 
-        configure_php_fpm
+        php --ini
+        php -v
+
         echo
 
         exec /usr/local/sbin/php-fpm -y /usr/local/etc/php-fpm.conf --nodaemonize --force-stderr

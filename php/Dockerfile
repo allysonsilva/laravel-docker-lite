@@ -1,6 +1,6 @@
 ARG LOCAL_APP_PATH=./src
 ARG LOCAL_DOCKER_PATH=./docker
-ARG PHP_BASE_IMAGE_VERSION=7.3-fpm-alpine
+ARG PHP_BASE_IMAGE_VERSION=7.4-fpm-alpine
 
 #####
 ## COMPOSER
@@ -20,7 +20,7 @@ COPY $LOCAL_APP_PATH/composer.json composer.json
 COPY $LOCAL_APP_PATH/composer.lock composer.lock
 
 RUN set -xe \
-    && composer global require --optimize-autoloader --prefer-dist --no-suggest --ansi hirak/prestissimo:"^0.3" \
+    && composer global require --prefer-dist --no-suggest --ansi hirak/prestissimo:"^0.3" \
     && composer global dumpautoload --optimize --ansi \
     && composer config --list --global
 
@@ -37,6 +37,7 @@ COPY $LOCAL_APP_PATH/.env.example .env.example
 
 RUN set -xe \
     &&  composer install \
+            --optimize-autoloader \
             --ignore-platform-reqs \
             --prefer-dist \
             --ansi \
@@ -47,7 +48,7 @@ RUN set -xe \
 ## FRONTEND
 #####
 
-FROM node:12-alpine as frontend
+FROM node:13-alpine as frontend
 
 WORKDIR /app
 
@@ -122,6 +123,10 @@ RUN set -xe; \
         $PHPIZE_DEPS \
         curl-dev \
         pcre-dev \
+        # Mbstring
+        oniguruma-dev \
+        # SQLite3
+        sqlite-dev \
         # for intl extension
         icu-dev \
         libintl \
@@ -151,13 +156,11 @@ RUN set -xe; \
         libssl1.1 \
     ; \
     docker-php-ext-configure gd \
-        --with-gd \
-        --with-jpeg-dir=/usr/include/ \
-        --with-png-dir=/usr/include/ \
-        --with-webp-dir=/usr/include/ \
-        --with-freetype-dir=/usr/include/ \
+        --enable-gd \
+        --with-jpeg \
+        --with-webp \
+        --with-freetype \
     ; \
-    docker-php-ext-configure zip --with-libzip=/usr/include/ && \
     docker-php-ext-configure mysqli --with-mysqli=mysqlnd && \
     docker-php-ext-configure pdo_mysql --with-pdo-mysql=mysqlnd && \
     docker-php-ext-install -j $(nproc) \
@@ -167,6 +170,7 @@ RUN set -xe; \
         intl \
         gd \
         bcmath \
+        mbstring \
         gmp \
         pcntl \
         mysqli \
@@ -179,13 +183,27 @@ RUN set -xe; \
     pecl install -o -f \
         ds-1.2.9 \
         amqp-1.9.4 \
-        redis-5.1.1 \
-        mongodb-1.7.3 \
+        mongodb-1.7.4 \
         xdebug-2.9.2 \
+    ; \
+    # Igbinary: Is a drop in replacement for the standard php serializer.
+    # MessagePack: Is an efficient binary serialization format.
+    pecl install -o -f \
+        igbinary-3.1.2 \
+        msgpack-2.1.0 \
+    ; \
+    # redis/configure \
+    #       --with-php-config=/usr/local/bin/php-config \
+    #       --enable-redis-igbinary=yes \
+    #       --enable-redis-lzf=no \
+    #       --enable-redis-zstd=no
+    printf "yes \n no \n no \n" | pecl install redis-5.2.0 \
     ; \
     docker-php-ext-enable \
         ds \
         amqp \
+        igbinary \
+        msgpack \
         redis \
         mongodb \
         xdebug \
@@ -333,7 +351,7 @@ RUN set -xe \
     && echo "---> Installing Composer" \
     && COMPOSER_HOME="/home/${USER_NAME}/.composer/" \
     && curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer \
-    && composer global require --optimize-autoloader --prefer-dist --no-progress --no-suggest --ansi "hirak/prestissimo:^0.3" \
+    && composer global require --prefer-dist --no-progress --no-suggest --ansi "hirak/prestissimo:^0.3" \
     && composer global dumpautoload --optimize --ansi \
     && composer clear-cache
 
