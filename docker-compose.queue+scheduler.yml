@@ -1,0 +1,79 @@
+---
+version: '3.7'
+
+networks:
+    AppNetwork:
+        external:
+            name: ${COMPOSE_PROJECT_NAME}_Network
+
+services:
+
+    queue:
+        image: ${QUEUE_IMAGE}
+        hostname: queue
+        container_name: queue
+        build:
+            context: ./../
+            dockerfile: ${LOCAL_DOCKER_PATH}/php/Dockerfile
+            args:
+                APP_ENV: production
+                REMOTE_SRC: ${QUEUE_SRC}
+                LOCAL_APP_PATH: ${QUEUE_LOCAL_PATH}
+                LOCAL_DOCKER_PATH: ${LOCAL_DOCKER_PATH}
+        working_dir: ${QUEUE_SRC}
+        env_file:
+            - queue.env
+        environment:
+            APP_KEY: SomeRandomString
+            APP_ENV: production
+            CONTAINER_ROLE: queue
+            LARAVEL_QUEUE_MANAGER: worker
+        # volumes:
+        #     - ${ROOT_PATH}/${QUEUE_LOCAL_PATH}:${QUEUE_SRC}:delegated
+        #     - ./php/configs/php-local.ini:/usr/local/etc/php/php.ini:ro
+        ports:
+            - "8088:8000"
+        restart: always
+        networks:
+            AppNetwork:
+                ipv4_address: 172.80.0.10
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1M"
+                max-file: "5"
+                tag: "logging-queue"
+
+    scheduler:
+        image: ${SCHEDULER_IMAGE}
+        hostname: scheduler
+        container_name: scheduler
+        build:
+            context: ./../
+            dockerfile: ${LOCAL_DOCKER_PATH}/php/Dockerfile
+            args:
+                APP_ENV: production
+                REMOTE_SRC: ${SCHEDULER_SRC}
+                LOCAL_APP_PATH: ${SCHEDULER_LOCAL_PATH}
+                LOCAL_DOCKER_PATH: ${LOCAL_DOCKER_PATH}
+        working_dir: ${SCHEDULER_SRC}
+        user: root
+        env_file:
+            - scheduler.env
+        environment:
+            APP_KEY: SomeRandomString
+            APP_ENV: production
+            CONTAINER_ROLE: scheduler
+        # volumes:
+        #     - ${ROOT_PATH}/${SCHEDULER_LOCAL_PATH}:${SCHEDULER_SRC}:delegated
+        #     - ./php/configs/php-local.ini:/usr/local/etc/php/php.ini:ro
+        restart: always
+        networks:
+            AppNetwork:
+                ipv4_address: 172.80.0.11
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "1M"
+                max-file: "5"
+                tag: "logging-scheduler"

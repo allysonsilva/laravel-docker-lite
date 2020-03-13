@@ -1,0 +1,60 @@
+---
+version: '3.7'
+
+volumes:
+
+    local_site:
+        driver: local
+        driver_opts:
+            type: nfs
+            # @see https://vivait.co.uk/labs/docker-for-mac-performance-using-nfs
+            # @see https://www.firehydrant.io/blog/nfs-with-docker-on-macos-catalina/
+            o: addr=host.docker.internal,rw,nolock,hard,nointr,nfsvers=3
+            # device: ":/System/Volumes/Data/${PWD} on >= OSX Catalina"
+            device: ":${ROOT_PATH}/${SITE_LOCAL_PATH}"
+
+    local_admin:
+        driver: local
+        driver_opts:
+            type: nfs
+            o: addr=host.docker.internal,rw,nolock,hard,nointr,nfsvers=3
+            device: ":${ROOT_PATH}/${ADMIN_LOCAL_PATH}"
+
+services:
+
+    webserver:
+        tty: true
+        stdin_open: true
+        # environment:
+        #     FORCE_CHANGE_OWNERSHIP: 'true'
+        volumes:
+            - type: bind
+              source: ./nginx/docker-entrypoint.sh
+              target: /entrypoint.sh
+              read_only: true
+            - "local_site:${SITE_SRC}"
+            - "local_admin:${ADMIN_SRC}"
+
+    site:
+        environment:
+            APP_ENV: local
+            FORCE_CLEAR: 'true'
+            FORCE_STORAGE_LINK: 'true'
+        restart: always
+        volumes:
+            - "local_site:${SITE_SRC}"
+            - ./php/docker-entrypoint.sh:/entrypoint.sh:ro
+            - ./php/configs/php-local.ini:/usr/local/etc/php/php.ini:ro
+
+    admin:
+        environment:
+            APP_ENV: local
+            # FORCE_CLEAR: 'true'
+            XDEBUG_ENABLED: 'true'
+            XDEBUG_REMOTE_HOST: host.docker.internal
+        restart: always
+        volumes:
+            - "local_admin:${ADMIN_SRC}"
+            - ./php/docker-entrypoint.sh:/entrypoint.sh:ro
+            - ./php/configs/php-local.ini:/usr/local/etc/php/php.ini:ro
+            - ./php/configs/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini:ro

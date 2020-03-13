@@ -3,11 +3,11 @@ version: '3.7'
 networks:
     AppNetwork:
         driver: bridge
-        name: app_net
+        name: ${COMPOSE_PROJECT_NAME}_Network
         ipam:
             driver: default
             config:
-                - subnet: 172.19.0.0/16
+                - subnet: 172.80.0.0/16
 
 volumes:
     redis_data:
@@ -47,7 +47,7 @@ services:
         restart: always
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.2
+                ipv4_address: 172.80.0.3
 
     # docker exec -it rabbitmq rabbitmqctl -n rabbit@localhost status
     rabbitmq:
@@ -67,7 +67,7 @@ services:
             RABBITMQ_ERL_COOKIE: "UEtgBNDwbk"
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.3
+                ipv4_address: 172.80.0.4
 
     # mongo --tls --tlsAllowInvalidHostnames --tlsAllowInvalidCertificates \
     #       --tlsCAFile ./mongodb/ssl/ca.pem --tlsCertificateKeyFile ./mongodb/ssl/client.pem \
@@ -92,14 +92,14 @@ services:
             MONGO_INITDB_ROOT_PASSWORD: "jyA7LF_7dX7.pmH"
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.4
+                ipv4_address: 172.80.0.5
 
     # mysql -h 127.0.0.1 -P 30062 -uapp -p'ExBkhs^NGuA6r_Fu' \
     #     --ssl-ca=mysql/ssl/ca.pem \
     #     --ssl-cert=mysql/ssl/client-cert.pem \
     #     --ssl-key=mysql/ssl/client-key.pem
     database:
-        image: mysql:5.7
+        image: mysql:8.0
         hostname: database
         container_name: database
         command: ["mysqld"]
@@ -118,60 +118,70 @@ services:
         # ports:
         #     - "30062:3603"
         restart: always
-        healthcheck:
-            test: "export MYSQL_PWD='cwCvv3sjRHjP^2U_'; mysqladmin -P 3603 --user=root --silent ping"
-            interval: 60s
-            timeout: 5s
-            retries: 3
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.5
+                ipv4_address: 172.80.0.6
 
     webserver:
         image: ${WEBSERVER_IMAGE}
         hostname: webserver
         container_name: webserver
-        working_dir: ${REMOTE_SRC}
+        build:
+            context: ./nginx
+            args:
+                SITE_DOMAIN: ${SITE_DOMAIN}
+                TAG_SITE_IMAGE: ${SITE_IMAGE}
+                SITE_SRC: ${SITE_SRC}
+                ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+                TAG_ADMIN_IMAGE: ${ADMIN_IMAGE}
+                ADMIN_SRC: ${ADMIN_SRC}
         environment:
-            APP_DOMAIN: ${APP_DOMAIN}
-            REMOTE_SRC: ${REMOTE_SRC}
+            FORCE_CHANGE_OWNERSHIP: 'false'
+            SITE_DOMAIN: ${SITE_DOMAIN}
+            SITE_SRC: ${SITE_SRC}
+            ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+            ADMIN_SRC: ${ADMIN_SRC}
         ports:
             - "${WEBSERVER_PORT_HTTP}:80"
             - "${WEBSERVER_PORT_HTTPS}:443"
-        depends_on: ['app']
-        links:
-            - "app:app-php"
-        restart: on-failure
+        depends_on: ['site', 'admin']
+        restart: always
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.6
+                ipv4_address: 172.80.0.7
         logging:
             driver: "json-file"
             options:
                 max-size: "200k"
                 max-file: "10"
-                tag: "webserver"
+                tag: "logging-webserver"
 
-    app:
-        image: ${APP_IMAGE}
-        hostname: app
-        container_name: app
-        working_dir: ${REMOTE_SRC}
+    site:
+        image: ${SITE_IMAGE}
+        hostname: site
+        container_name: site
+        build:
+            context: ./../
+            dockerfile: ${LOCAL_DOCKER_PATH}/php/Dockerfile
+            args:
+                APP_ENV: production
+                REMOTE_SRC: ${SITE_SRC}
+                LOCAL_APP_PATH: ${SITE_LOCAL_PATH}
+                LOCAL_DOCKER_PATH: ${LOCAL_DOCKER_PATH}
+        working_dir: ${SITE_SRC}
         env_file:
-            - app.env
+            - site.env
         ports:
-            - "8800:8800"
-            - "8080:8080"
-        # extra_hosts:
-        #     - "machine-host:${MACHINE_IP}"
+            - "8801:8800"
+            - "8082:8080"
         environment:
-            REMOTE_SRC: ${REMOTE_SRC}
+            REMOTE_SRC: ${SITE_SRC}
             CONTAINER_ROLE: app
             # XDEBUG_ENABLED: 'false'
             # XDEBUG_REMOTE_HOST: host.docker.internal
             # # SESSION
             SESSION_DRIVER: file
-            SESSION_DOMAIN: ${APP_DOMAIN}
+            SESSION_DOMAIN: ${SITE_DOMAIN}
             SESSION_LIFETIME: 120
             SESSION_SECURE_COOKIE: 'true'
             # # JWT
@@ -180,65 +190,45 @@ services:
             JWT_REFRESH_TTL: 20160
         depends_on: ['redis', 'database']
         restart: on-failure
-        healthcheck:
-            test: ["CMD-SHELL", "SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1"]
-            interval: 60s
-            timeout: 5s
-            retries: 3
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.7
+                ipv4_address: 172.80.0.8
         logging:
             driver: "json-file"
             options:
-                max-file: 5
-                max-size: 10m
-                tag: app
+                max-size: "200k"
+                max-file: "10"
+                tag: "logging-site"
 
-    queue:
-        image: ${APP_IMAGE}
-        hostname: queue
-        container_name: queue
-        working_dir: ${REMOTE_SRC}
+    admin:
+        image: ${ADMIN_IMAGE}
+        hostname: admin
+        container_name: admin
+        build:
+            context: ./../
+            dockerfile: ${LOCAL_DOCKER_PATH}/php/Dockerfile
+            args:
+                APP_ENV: production
+                REMOTE_SRC: ${ADMIN_SRC}
+                LOCAL_APP_PATH: ${ADMIN_LOCAL_PATH}
+                LOCAL_DOCKER_PATH: ${LOCAL_DOCKER_PATH}
+        working_dir: ${ADMIN_SRC}
         env_file:
-            - app.env
-            - queue.env
-        environment:
-            CONTAINER_ROLE: queue
-            LARAVEL_QUEUE_MANAGER: worker
+            - admin.env
         ports:
-            - "8088:8000"
-        depends_on: ['redis', 'database']
-        restart: always
-        networks:
-            AppNetwork:
-                ipv4_address: 172.19.0.8
-        logging:
-            driver: "json-file"
-            options:
-                max-file: 5
-                max-size: 10m
-                tag: queue
-
-    scheduler:
-        image: ${APP_IMAGE}
-        hostname: scheduler
-        container_name: scheduler
-        working_dir: ${REMOTE_SRC}
-        user: root
-        env_file:
-            - app.env
-            - scheduler.env
+            - "8803:8800"
+            - "8084:8080"
         environment:
-            CONTAINER_ROLE: scheduler
+            REMOTE_SRC: ${ADMIN_SRC}
+            CONTAINER_ROLE: app
         depends_on: ['redis', 'database']
-        restart: always
+        restart: on-failure
         networks:
             AppNetwork:
-                ipv4_address: 172.19.0.9
+                ipv4_address: 172.80.0.9
         logging:
             driver: "json-file"
             options:
-                max-file: 5
-                max-size: 10m
-                tag: scheduler
+                max-size: "200k"
+                max-file: "10"
+                tag: "logging-admin"
