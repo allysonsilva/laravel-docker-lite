@@ -32,6 +32,7 @@ endef
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  config-env                        Configura as variáveis .env do docker-compose + .env.xyz dos containers"
+	@echo "  docker-pull                       Baixa todas as images utilizadas para build e docker-compose"
 	@echo "  docker-update                     Atualiza os containers com novas versões de imagens"
 	@echo "  docker-up-prod                    Executar em ambiente de PRODUÇÃO"
 	@echo "  docker-up-dev                     Executar em ambiente de DESENVOLVIMENTO"
@@ -57,6 +58,16 @@ config-env:
 	@sed -i "/# ROOT_PATH=.*/c\ROOT_PATH=$(ROOT_PATH)" .env
 	@sed -i "/LOCAL_DOCKER_PATH=.*/c\LOCAL_DOCKER_PATH=$(LOCAL_DOCKER_PATH)" .env
 	@echo $(call message_success, Run \`make config-env\` successfully executed)
+
+docker-pull:
+	@docker pull php:7.4-fpm-alpine
+	@docker pull composer:1.9
+	@docker pull node:13-alpine
+	@docker pull nginx:1.17-alpine
+	@docker pull mysql:8.0
+	@docker pull mongo:4.2
+	@docker pull redis:5-alpine
+	@docker pull bitnami/rabbitmq:3.8
 
 docker-update:
 	@echo $(call message_info, Downloading the images 🗄)
