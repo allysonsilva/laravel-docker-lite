@@ -361,8 +361,9 @@ RUN set -xe \
 ENV PATH="$PATH:/home/${USER_NAME}/.composer/vendor/bin"
 
 RUN set -xe \
-    && composer dump-autoload --optimize --classmap-authoritative --no-dev --ansi \
     && composer run-script post-root-package-install \
+    && composer run-script post-create-project-cmd \
+    && composer dump-autoload --optimize --classmap-authoritative --no-dev --ansi \
     && composer run-script post-autoload-dump
 
 RUN set -xe && \
