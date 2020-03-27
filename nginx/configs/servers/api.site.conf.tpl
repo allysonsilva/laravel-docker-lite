@@ -32,7 +32,7 @@ server {
     root {{API_SITE_SRC}}/public;
 
     location / {
-        try_files $uri $uri/ /index.php?$query_string =404;
+        try_files $uri $uri/ /index.php?$query_string;
 
         #### Simple DDoS Defense / LIMITS
         #### Control Simultaneous Connections
