@@ -184,6 +184,7 @@ services:
             SESSION_DRIVER: file
             SESSION_DOMAIN: ${SITE_DOMAIN}
             SESSION_LIFETIME: 120
+            SESSION_ENCRYPT: 'true'
             SESSION_SECURE_COOKIE: 'true'
             # # JWT
             JWT_SECRET: SomeRandomString
