@@ -141,6 +141,8 @@ services:
             SITE_SRC: ${SITE_SRC}
             ADMIN_DOMAIN: ${ADMIN_DOMAIN}
             ADMIN_SRC: ${ADMIN_SRC}
+            # # foo:bar
+            # ADMIN_HTPASSWD: 'foo:$$apr1$$Ls0vzKYg$$Mksb45MS9MFHfl3/qL8oF.'
         ports:
             - "${WEBSERVER_PORT_HTTP}:80"
             - "${WEBSERVER_PORT_HTTPS}:443"

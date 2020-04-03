@@ -27,6 +27,10 @@ do
                 < $conf | sponge $conf
 done
 
+if [ -n "$ADMIN_HTPASSWD" ]; then
+    echo $ADMIN_HTPASSWD > /etc/nginx/auths/admin.htpasswd
+fi
+
 # ================================================
 # ================================================
 
