@@ -57,6 +57,7 @@ ARG LOCAL_APP_PATH
 # COPY package-lock.json package-lock.json
 COPY $LOCAL_APP_PATH/package.json $LOCAL_APP_PATH/webpack.mix.js ./
 COPY $LOCAL_APP_PATH/resources/ resources/
+COPY $LOCAL_APP_PATH/resources/images/ public/images/
 COPY $LOCAL_APP_PATH/public/ public/
 
 RUN set -xe \
