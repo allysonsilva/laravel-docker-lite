@@ -391,11 +391,10 @@ STOPSIGNAL SIGQUIT
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
 RUN { \
-        echo 'opcache.memory_consumption=1024'; \
-        echo 'opcache.interned_strings_buffer=64'; \
-        echo 'opcache.max_accelerated_files=65407'; \
+        echo 'opcache.memory_consumption=256'; \
+        echo 'opcache.interned_strings_buffer=16'; \
+        echo 'opcache.max_accelerated_files=12288'; \
         echo 'opcache.revalidate_freq=0'; \
-        echo 'opcache.enable_cli=1'; \
     } > /usr/local/etc/php/conf.d/zz-opcache-recommended.ini; \
     \
     { \
