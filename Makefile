@@ -101,7 +101,7 @@ docker-prune:
 
 docker-clean:
 	@echo $(call message_info, Prune images + Volumes + Network 🗑)
-	@docker rmi -f $(docker images | grep "<none>" | awk "{print $3}") || true
+	@docker rmi -f $$(docker images | grep "<none>" | awk "{print $$3}") || true
 	@$(MAKE) --no-print-directory docker-prune
 
 docker-compose-build-webserver:
